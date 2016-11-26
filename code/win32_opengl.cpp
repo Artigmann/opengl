@@ -8,8 +8,8 @@
 #include <GLFW/glfw3.h>
 GLFWwindow* window;
 
-#include "glm/glm.hpp"
-#include "common/shader.cpp"
+#include <glm/glm.hpp>
+#include <common/shader.cpp>
 using namespace glm;
 
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCode)
@@ -79,7 +79,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 		// Clear the screen
 		glClear( GL_COLOR_BUFFER_BIT );
 
-//        glUseProgram(programID);
+        glUseProgram(programID);
         
 		// 1rst attribute buffer : vertices
 		glEnableVertexAttribArray(0);
