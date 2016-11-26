@@ -1,8 +1,9 @@
 @echo off
 
-REM HUSK!! set "visual studio solution working dir" til data dir ellers fungerer ikke shaders
-REM hvis du ikke bruker visual studio til a kjore, last shaders ved bruk av relative paths,
-REM eller legg dem i code dir
+REM HUSK!! set "visual studio solution working dir" til data dir for a kjore
+REM hvis du ikke bruker visual studio, kjor exe fila fra data dir (../build/win32_opengl.exe)
+REM eller bruk run.bat script i misc til a kjore
+REM TODO ha alt i relative paths
 
 IF NOT EXIST ..\build mkdir ..\build
 pushd ..\build
