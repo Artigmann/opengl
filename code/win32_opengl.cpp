@@ -1,16 +1,17 @@
 #include <windows.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <GL/glew.h>
-
 #include <GLFW/glfw3.h>
-GLFWwindow* window;
-
 #include <glm/glm.hpp>
+
 #include <common/shader.cpp>
+
 using namespace glm;
+
+
+GLFWwindow* window;
 
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCode)
 {
@@ -91,7 +92,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 			GL_FALSE,           // normalized?
 			0,                  // stride
 			NULL            // array buffer offset
-		);
+                              );
 
 		// Draw the triangle !
 		glDrawArrays(GL_TRIANGLES, 0, 3); // 3 indices starting at 0 -> 1 triangle
