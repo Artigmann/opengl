@@ -21,6 +21,34 @@ static int framebufferWidth, framebufferHeight;
 static bool rotateRigth;
 static bool rotateLeft;
 
+typedef float mat4x4[16];
+
+struct vector3
+{
+    float x, y, z;
+};
+
+static void makeIdentityMatrix(mat4x4 matrix)
+{
+    matrix[0] = 1.0f;
+    matrix[5] = 1.0f;
+    matrix[10] = 1.0f;
+    matrix[15] = 1.0f;
+}
+
+static void scaleMatrix4x4(mat4x4 matrix, vector3 scaleVec)
+{
+    matrix[0] *= scaleVec.x;
+    matrix[5] *= scaleVec.y;
+    matrix[10] *= scaleVec.z;
+    matrix[15] *= 1.0f;
+}
+
+static void rotateMatrix4x4(mat4x4 matrix, vector3 rotationVec)
+{
+    
+}
+
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
@@ -95,7 +123,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
     GLfloat rotate = 0.0f;
 
     double lastTime = glfwGetTime();
-    int frameCounter = 0;
+    int frameCounter = 0;    
+    
     while (!glfwWindowShouldClose(window))
     {
         double currentTime = glfwGetTime();
@@ -128,12 +157,18 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
             rotate += 1.0f;
         }
 
-        transform = glm::scale(transform, glm::vec3(0.2, 0.2, 0.2));
-        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
+        mat4x4 trans = {};
+        makeIdentityMatrix(trans);
+        vector3 scaleVec = {0.2f, 0.2f, 0.2f};
+        scaleMatrix4x4(trans, scaleVec);
+        
+//        transform = glm::scale(transform, glm::vec3(0.2, 0.2, 0.2));
+        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 1.0f, 1.0f));
 
         // Get matrix's uniform location and set matrix
         GLint transformLoc = glGetUniformLocation(shaders.Program, "transform");
-        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+        float *glmValue = glm::value_ptr(transform);
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glmValue);
         
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 3);
