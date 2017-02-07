@@ -10,9 +10,9 @@ pushd ..\build
 
 set includePath=-I ..\lib\win32\include
 set libPath=/LIBPATH:..\lib\win32
-set linkerFlags=User32.lib Opengl32.lib %libPath%  glew32.lib glfw3dll.lib
+set linkerFlags=User32.lib Opengl32.lib %libPath%  glew32.lib glfw3dll.lib Gdi32.lib SOIL.lib
 set compilerFlags=-Zi -Od -nologo -EHsc %includePath%
 
-cl  %compilerFlags% ..\code\win32_opengl.cpp /link %linkerFlags%
+cl  %compilerFlags% ..\code\win32_opengl.cpp /link  %linkerFlags%
 
 popd

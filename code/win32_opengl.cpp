@@ -1,118 +1,146 @@
 #include <windows.h>
+#include <assert.h>
+#include <math.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
+#include "win32_opengl.h"
+
+#include "SOIL\SOIL.h"
+
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
-#include <common/shader.cpp>
+static int windowWidth = 800, windowHeight = 600;
+static int framebufferWidth, framebufferHeight;
+static bool rotateRigth;
+static bool rotateLeft;
 
-using namespace glm;
-
-
-GLFWwindow* window;
-
-int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int showCode)
+void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
-	// Initialise GLFW
-	if( !glfwInit() )
-	{
-		OutputDebugString("Failed to initialize GLFW\n");
-		getchar();
-		return -1;
-	}
-
-	glfwWindowHint(GLFW_SAMPLES, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-	// Open a window and create its OpenGL context
-	window = glfwCreateWindow( 1024, 768, "Tutorial 02 - Red triangle", NULL, NULL);
-	if( window == NULL )
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     {
-		OutputDebugString("Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n");
-		getchar();
-		glfwTerminate();
-		return -1;
-	}
-	glfwMakeContextCurrent(window);
-
-	// Initialize GLEW
-	glewExperimental = true; // Needed for core profile
-	if (glewInit() != GLEW_OK)
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
     {
-		OutputDebugString("Failed to initialize GLEW\n");
-		getchar();
-		glfwTerminate();
-		return -1;
-	}
-
-	// Ensure we can capture the escape key being pressed below
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-
-	// Dark blue background
-	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
-
-    GLuint programID = LoadShaders("SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader");
-    
-    GLfloat g_vertex_buffer_data[] =
-        { 
-            -1.0f, -1.0f, 0.0f,
-            1.0f, -1.0f, 0.0f,
-            0.0f,  1.0f, 0.0f,
-        };
-
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
-
-	do
+        rotateRigth = true;
+    }
+    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
     {
+        rotateLeft = true;
+    }
+    if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
+    {
+        rotateRigth = false;
+    }
+    if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
+    {
+        rotateLeft = false;
+    }
+}
 
-		// Clear the screen
-		glClear( GL_COLOR_BUFFER_BIT );
+int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int nCmdShow)
+{
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+    glfwWindowHint(GLFW_SAMPLES, 16);
 
-        glUseProgram(programID);
+    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "openGL", NULL, NULL);
+    glfwMakeContextCurrent(window);
+    glfwSetKeyCallback(window, key_callback);
+
+    glewExperimental = GL_TRUE;
+    glewInit();
+
+    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+    glViewport(0, 0, framebufferWidth, framebufferHeight);
+
+    Shader shaders("vertex.gl", "fragment.gl");
+
+    GLfloat vertices[] =
+    {
+        -0.3f, -0.3f, 0.0f,
+        0.3f, -0.3f, 0.0f,
+        0.0f, 0.8f, 0.0f
+    };
+
+    GLuint VBO, VAO;
+
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glfwSwapInterval(1);
+    glEnable(GL_MULTISAMPLE);  
+
+    GLfloat rotate = 0.0f;
+
+    double lastTime = glfwGetTime();
+    int frameCounter = 0;
+    while (!glfwWindowShouldClose(window))
+    {
+        double currentTime = glfwGetTime();
+        frameCounter++;
+        if ( currentTime - lastTime >= 1.0 ){
+            char buffer[512];
+            snprintf(buffer, sizeof(buffer), "%f ms/frame %dfps\n", 1000.0/double(frameCounter), frameCounter);
+            OutputDebugString(buffer);
+            frameCounter = 0;
+            lastTime += 1.0;
+        }
         
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute 0. No particular reason for 0, but must match the layout in the shader.
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			NULL            // array buffer offset
-                              );
+        glfwPollEvents();
 
-		// Draw the triangle !
-		glDrawArrays(GL_TRIANGLES, 0, 3); // 3 indices starting at 0 -> 1 triangle
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-		glDisableVertexAttribArray(0);
+        shaders.Use();
 
-		// Swap buffers
-		glfwSwapBuffers(window);
-		glfwPollEvents();
+        glm::mat4 transform;
+        //transform = glm::translate(transform, glm::vec3(0.5f, -0.5f, 0.0f));
 
-	} // Check if the ESC key was pressed or the window was closed
-	while( glfwGetKey(window, GLFW_KEY_ESCAPE ) != GLFW_PRESS &&
-		   glfwWindowShouldClose(window) == 0 );
 
-	// Cleanup VBO
-	glDeleteBuffers(1, &vertexbuffer);
-	glDeleteVertexArrays(1, &VertexArrayID);
-    glDeleteProgram(programID);
-	// Close OpenGL window and terminate GLFW
-	glfwTerminate();
+        if (rotateRigth)
+        {
+            rotate -= 1.0f;
+        }
+        else if (rotateLeft)
+        {
+            rotate += 1.0f;
+        }
 
-	return 0;
+        transform = glm::scale(transform, glm::vec3(0.2, 0.2, 0.2));
+        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // Get matrix's uniform location and set matrix
+        GLint transformLoc = glGetUniformLocation(shaders.Program, "transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+        
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+
+        glfwSwapBuffers(window);
+    }
+    
+    return 0;
 }
