@@ -17,7 +17,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
 
-static int windowWidth = 800, windowHeight = 600;
+static int windowWidth = 800, windowHeight = 800;
 static int framebufferWidth, framebufferHeight;
 static bool rotateRigth;
 static bool rotateLeft;
@@ -127,9 +127,6 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
     glGenVertexArrays(2, VAO);
     glGenBuffers(2, VBO);
-    
-    // glGenVertexArrays(1, &VAO[1]);
-    // glGenBuffers(1, &VBO[1]);
     
     // ship
     glBindVertexArray(VAO[0]);
