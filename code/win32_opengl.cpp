@@ -15,6 +15,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/random.hpp>
 
 static int windowWidth = 800, windowHeight = 600;
 static int framebufferWidth, framebufferHeight;
@@ -44,9 +45,12 @@ static void scaleMatrix4x4(mat4x4 matrix, vector3 scaleVec)
     matrix[15] *= 1.0f;
 }
 
-static void rotateMatrix4x4(mat4x4 matrix, vector3 rotationVec)
+static void rotateMatrix4x4(mat4x4 matrix, float rotation)
 {
-    
+    matrix[0] = (cos(rotation));
+    matrix[1] = -(sin(rotation));
+    matrix[4] = (sin(rotation));
+    matrix[5] = (cos(rotation));
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
@@ -94,22 +98,44 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
     Shader shaders("vertex.gl", "fragment.gl");
 
-    GLfloat vertices[] =
+    GLfloat shipVertices[] =
     {
-        -0.3f, -0.3f, 0.0f,
-        0.3f, -0.3f, 0.0f,
-        0.0f, 0.8f, 0.0f
+        // left triangle of ship
+        -0.5f, -0.5f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        
+            // // right triangle of ship
+        0.0f, 0.0f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        0.0f, 1.0f, 0.0f,
     };
 
-    GLuint VBO, VAO;
+    GLfloat astroidVertices[] =
+    {
+        // top triangle
+        0.5f,  0.5f, 0.0f,  // Top Right
+        0.5f, -0.5f, 0.0f,  // Bottom Right
+        -0.5f,  0.5f, 0.0f,  // Top Left 
+        // bottom triangle
+        -0.5f,  0.5f, 0.0f,  // Top Left
+        -0.5f, -0.5f, 0.0f,  // Bottom Left
+        0.5f,  -0.5f, 0.0f  // Bottom Left 
+    };
 
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    GLuint VBO[2], VAO[2];
 
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &VAO[0]);
+    glGenBuffers(1, &VBO[0]);
+    
+    glGenVertexArrays(1, &VAO[1]);
+    glGenBuffers(1, &VBO[1]);
+    
+    // ship
+    glBindVertexArray(VAO[0]);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(shipVertices), shipVertices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
@@ -117,6 +143,19 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    // astroids
+    glBindVertexArray(VAO[1]);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(astroidVertices), astroidVertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    
     glfwSwapInterval(1);
     glEnable(GL_MULTISAMPLE);  
 
@@ -124,6 +163,10 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
     double lastTime = glfwGetTime();
     int frameCounter = 0;    
+
+
+    float asteroidPositionX = -5.0f;  
+    float asteroidPositionY = 5.0f;
     
     while (!glfwWindowShouldClose(window))
     {
@@ -145,7 +188,7 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
         shaders.Use();
 
         glm::mat4 transform;
-        //transform = glm::translate(transform, glm::vec3(0.5f, -0.5f, 0.0f));
+        
 
 
         if (rotateRigth)
@@ -157,23 +200,46 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
             rotate += 1.0f;
         }
 
-        mat4x4 trans = {};
-        makeIdentityMatrix(trans);
-        vector3 scaleVec = {0.2f, 0.2f, 0.2f};
-        scaleMatrix4x4(trans, scaleVec);
+        // mat4x4 trans = {};
+        // makeIdentityMatrix(trans);
+        // vector3 scaleVec = {0.2f, 0.2f, 0.2f};
+        // scaleMatrix4x4(trans, scaleVec);
+        // rotateMatrix4x4(trans, 90.0f);
         
-//        transform = glm::scale(transform, glm::vec3(0.2, 0.2, 0.2));
-        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 1.0f, 1.0f));
+        transform = glm::scale(transform, glm::vec3(0.15, 0.15, 0.15));
+        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
 
         // Get matrix's uniform location and set matrix
         GLint transformLoc = glGetUniformLocation(shaders.Program, "transform");
         float *glmValue = glm::value_ptr(transform);
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glmValue);
         
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
-        glBindVertexArray(0);
+        glBindVertexArray(VAO[0]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
+#if 1
+        
+        if (frameCounter == 0)
+        {
+            asteroidPositionX = glm::linearRand(-5.0f, 5.0f);
+            asteroidPositionY = glm::linearRand(-5.0f, 5.0f);
+        }
+#endif
+            
+        glm::vec3 asteroidPosition(asteroidPositionX, asteroidPositionY, 0.0f);
+        
+        transform = glm::translate(transform, asteroidPosition);
+        transform = glm::scale(transform, glm::vec3(0.3, 0.3, 0.3));
+        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        transformLoc = glGetUniformLocation(shaders.Program, "transform");
+        glmValue = glm::value_ptr(transform);
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glmValue);
+        
+        glBindVertexArray(VAO[1]);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        
         glfwSwapBuffers(window);
     }
     
