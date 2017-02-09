@@ -125,11 +125,11 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
     GLuint VBO[2], VAO[2];
 
-    glGenVertexArrays(1, &VAO[0]);
-    glGenBuffers(1, &VBO[0]);
+    glGenVertexArrays(2, VAO);
+    glGenBuffers(2, VBO);
     
-    glGenVertexArrays(1, &VAO[1]);
-    glGenBuffers(1, &VBO[1]);
+    // glGenVertexArrays(1, &VAO[1]);
+    // glGenBuffers(1, &VBO[1]);
     
     // ship
     glBindVertexArray(VAO[0]);
