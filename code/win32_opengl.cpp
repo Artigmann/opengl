@@ -8,8 +8,6 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include "win32_opengl.h"
-
 #include "SOIL\SOIL.h"
 
 #include <glm/glm.hpp>
@@ -17,228 +15,302 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/random.hpp>
 
-static int windowWidth = 800, windowHeight = 800;
-static int framebufferWidth, framebufferHeight;
-static bool rotateRigth;
-static bool rotateLeft;
 
-typedef float mat4x4[16];
+#include "win32_opengl.h"
 
-struct vector3
+static GLuint windowWidth = 800;
+static GLuint windowHeight = 600;
+
+static struct game gameState;
+static struct sprite spriteRenderData;
+
+static void initSprite(struct sprite *sprite)
 {
-    float x, y, z;
-};
+    GLuint VBO;
+    GLfloat vertices[] =
+    {
+        // Pos      // Tex
+        0.0f, 1.0f, 0.0f, 1.0f,
+        1.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 0.0f, 
+    
+        0.0f, 1.0f, 0.0f, 1.0f,
+        1.0f, 1.0f, 1.0f, 1.0f,
+        1.0f, 0.0f, 1.0f, 0.0f
+    };
+    
+    glGenVertexArrays(1, &sprite->quadVAO);
+    glGenBuffers(1, &VBO);
 
-static void makeIdentityMatrix(mat4x4 matrix)
-{
-    matrix[0] = 1.0f;
-    matrix[5] = 1.0f;
-    matrix[10] = 1.0f;
-    matrix[15] = 1.0f;
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindVertexArray(sprite->quadVAO);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4*sizeof(GLfloat), (GLvoid*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 }
 
-static void scaleMatrix4x4(mat4x4 matrix, vector3 scaleVec)
+static void drawSprite(struct sprite *sprite, Texture2D &texture, glm::vec2 position,
+                       glm::vec2 size, GLfloat rotate, glm::vec3 color)
 {
-    matrix[0] *= scaleVec.x;
-    matrix[5] *= scaleVec.y;
-    matrix[10] *= scaleVec.z;
-    matrix[15] *= 1.0f;
+    sprite->shader.Use();
+    glm::mat4 model;
+    model = glm::translate(model, glm::vec3(position, 0.0f));
+
+    model = glm::translate(model, glm::vec3(0.5f * size.x, 0.5f * size.y, 0.0f)); 
+    model = glm::rotate(model, rotate, glm::vec3(0.0f, 0.0f, 1.0f)); 
+    model = glm::translate(model, glm::vec3(-0.5f * size.x, -0.5f * size.y, 0.0f));
+
+    model = glm::scale(model, glm::vec3(size, 1.0f));
+    
+    sprite->shader.SetMatrix4("model", model);
+    sprite->shader.SetVector3f("spriteColor", color);
+
+    glActiveTexture(GL_TEXTURE0);
+    texture.Bind();
+        
+    glBindVertexArray(sprite->quadVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindVertexArray(0);
 }
 
-static void rotateMatrix4x4(mat4x4 matrix, float rotation)
+static void gameInitObject(struct gameObject *object)
 {
-    matrix[0] = (cos(rotation));
-    matrix[1] = -(sin(rotation));
-    matrix[4] = (sin(rotation));
-    matrix[5] = (cos(rotation));
+    object->position = glm::vec2(0.0f, 0.0f);
+    object->size = glm::vec2(1.0f, 1.0f);
+    object->velocity = glm::vec2(0.0f);
+    object->color = glm::vec3(1.0f);
+    object->rotation = 0.0f;
+    object->isSolid = false;
+    object->destroyed = false;
 }
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mode)
+static void drawGameObject(struct gameObject *object, struct sprite *spriteRenderData)
+{
+    drawSprite(spriteRenderData, object->sprite, object->position, object->size, object->rotation, object->color);
+}
+
+static void drawLevel(struct gameLevel *level, struct sprite *spriteRenderData)
+{
+    
+    for (int i = 0; i < 3*6; i++)
+    {
+        drawGameObject(&level->bricks[i], spriteRenderData);
+    }
+}
+
+static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint levelHeight)
+{
+    
+    int tileData[3][6] =
+    {
+        {1, 1, 1, 1, 1, 1}, 
+        {2, 2, 0, 0, 2, 2},
+        {3, 3, 4, 4, 3, 3},
+    };
+
+    
+    GLuint height = 3;
+    GLuint width = 6;
+    GLfloat unitWidth = levelWidth / (GLfloat)width;
+    GLfloat unitHeight = levelHeight / height;
+    
+    int gameObjectPos = 0;
+    
+    for (int y = 0; y < height; y++)
+    {
+        for (int x = 0; x < width; x++)
+        {
+            if (tileData[y][x] == 1)
+            {
+                glm::vec2 pos(unitWidth * x, unitHeight * y);
+                glm::vec2 size(unitWidth, unitHeight);
+                glm::vec3 color(0.8f, 0.8f, 0.7f);
+                level->bricks[gameObjectPos].position = pos;
+                level->bricks[gameObjectPos].size = size;
+                level->bricks[gameObjectPos].color = color;
+                level->bricks[gameObjectPos].sprite = ResourceManager::GetTexture("block_solid");
+                level->bricks[gameObjectPos].isSolid = true;
+
+                gameObjectPos++;
+            }
+            else if (tileData[y][x] > 1)
+            {
+                glm::vec3 color = glm::vec3(1.0f); // original: white
+                if (tileData[y][x] == 2)
+                {
+                    color = glm::vec3(0.2f, 0.6f, 1.0f);
+                }
+                else if (tileData[y][x] == 3)
+                {
+                    color = glm::vec3(0.0f, 0.7f, 0.0f);
+                }
+                else if (tileData[y][x] == 4)
+                {
+                    color = glm::vec3(0.8f, 0.8f, 0.4f);
+                }
+                else if (tileData[y][x] == 5)
+                {
+                    color = glm::vec3(1.0f, 0.5f, 0.0f);
+                }
+
+                glm::vec2 pos(unitWidth * x, unitHeight * y);
+                glm::vec2 size(unitWidth, unitHeight);
+                level->bricks[gameObjectPos].position = pos;
+                level->bricks[gameObjectPos].size = size;
+                level->bricks[gameObjectPos].color = color;
+                level->bricks[gameObjectPos].sprite = ResourceManager::GetTexture("block_solid");
+
+                gameObjectPos++;
+            }
+        }
+    }
+}
+
+static void gameLoadLevel(struct gameLevel *level, GLchar *file, GLuint width, GLuint height)
+{
+    // TODO make dummy level here
+    /*
+      
+      1 1 1 1 1 1 
+      2 2 0 0 2 2
+      3 3 4 4 3 3
+      
+     */
+    gameInitLevel(level, width, height);
+}
+
+static void gameInit(struct game *gameState, struct sprite *sprite)
+{
+    gameState->width = windowWidth;
+    gameState->height = windowHeight;
+
+    // Load shaders
+    ResourceManager::LoadShader("vertex.gl", "fragment.gl", nullptr, "sprite");
+    // Configure shaders
+    glm::mat4 projection = glm::ortho(0.0f, static_cast<GLfloat>(gameState->width), 
+        static_cast<GLfloat>(gameState->height), 0.0f, -1.0f, 1.0f);
+    ResourceManager::GetShader("sprite").Use().SetInteger("image", 0);
+    ResourceManager::GetShader("sprite").SetMatrix4("projection", projection);
+
+    // Load textures
+    ResourceManager::LoadTexture("background.jpg", GL_FALSE, "background");
+    ResourceManager::LoadTexture("awesomeface.png", GL_TRUE, "face");
+    ResourceManager::LoadTexture("block.png", GL_FALSE, "block");
+    ResourceManager::LoadTexture("block_solid.png", GL_FALSE, "block_solid");
+//    ResourceManager::LoadTexture("paddle.png", true, "paddle");
+    
+    // Set render-specific controls
+    initSprite(sprite);
+    sprite->shader =  ResourceManager::GetShader("sprite");
+
+    
+    gameLoadLevel(&gameState->level, NULL, gameState->width, gameState->height * 0.5f);
+    
+    
+}
+
+static void gameUpdate(GLfloat dt)
+{
+    
+}
+
+static void gameProcessInput(GLfloat dt)
+{
+    
+}
+
+static void gameRender(struct game *gameState, struct sprite *spriteRenderData)
+{
+    if (gameState->state == GAME_ACTIVE)
+    {
+        // Draw background
+//        Renderer->DrawSprite(ResourceManager::GetTexture("background"), glm::vec2(0, 0), glm::vec2(this->Width, this->Height), 0.0f);
+        drawSprite(spriteRenderData, ResourceManager::GetTexture("background"),
+                   glm::vec2(0, 0), glm::vec2(gameState->width, gameState->height), 0.0f, glm::vec3(1.0f));
+        // // Draw level
+        drawLevel(&gameState->level, spriteRenderData);
+
+        // // Draw player
+        // Player->Draw(*Renderer);
+    }
+}
+
+void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
     {
-        glfwSetWindowShouldClose(window, GL_TRUE);
+        glfwSetWindowShouldClose(window, GL_TRUE);        
     }
-    if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS)
+    if (key >= 0 && key < 1024)
     {
-        rotateRigth = true;
-    }
-    if (key == GLFW_KEY_LEFT && action == GLFW_PRESS)
-    {
-        rotateLeft = true;
-    }
-    if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE)
-    {
-        rotateRigth = false;
-    }
-    if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE)
-    {
-        rotateLeft = false;
+        if (action == GLFW_PRESS)
+        {
+            gameState.keys[key] = GL_TRUE;
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            gameState.keys[key] = GL_FALSE;
+        }
+            
     }
 }
 
-int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int nCmdShow)
+int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, int showCode)
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-    glfwWindowHint(GLFW_SAMPLES, 16);
 
-    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "openGL", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout", NULL, NULL);
     glfwMakeContextCurrent(window);
-    glfwSetKeyCallback(window, key_callback);
 
     glewExperimental = GL_TRUE;
     glewInit();
+    glGetError();
 
-    glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
-    glViewport(0, 0, framebufferWidth, framebufferHeight);
+    glfwSetKeyCallback(window, keyCallback);
 
-    Shader shaders("vertex.gl", "fragment.gl");
+    glViewport(0, 0, windowWidth, windowHeight);
 
-    GLfloat shipVertices[] =
+    //NOTE read up on these!
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    gameInit(&gameState, &spriteRenderData);
+
+    GLfloat deltaTime = 0.0f;
+    GLfloat lastFrame = 0.0f;
+
+    gameState.state = GAME_ACTIVE;
+
+    while(!glfwWindowShouldClose(window))
     {
-        // left triangle of ship
-        -0.5f, -0.5f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-        
-            // // right triangle of ship
-        0.0f, 0.0f, 0.0f,
-        0.5f, -0.5f, 0.0f,
-        0.0f, 1.0f, 0.0f,
-    };
-
-    GLfloat astroidVertices[] =
-    {
-        // top triangle
-        0.5f,  0.5f, 0.0f,  // Top Right
-        0.5f, -0.5f, 0.0f,  // Bottom Right
-        -0.5f,  0.5f, 0.0f,  // Top Left 
-        // bottom triangle
-        -0.5f,  0.5f, 0.0f,  // Top Left
-        -0.5f, -0.5f, 0.0f,  // Bottom Left
-        0.5f,  -0.5f, 0.0f  // Bottom Left 
-    };
-
-    GLuint VBO[2], VAO[2];
-
-    glGenVertexArrays(2, VAO);
-    glGenBuffers(2, VBO);
-    
-    // ship
-    glBindVertexArray(VAO[0]);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(shipVertices), shipVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // astroids
-    glBindVertexArray(VAO[1]);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(astroidVertices), astroidVertices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (GLvoid*)0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    
-    glfwSwapInterval(1);
-    glEnable(GL_MULTISAMPLE);  
-
-    GLfloat rotate = 0.0f;
-
-    double lastTime = glfwGetTime();
-    int frameCounter = 0;    
-
-
-    float asteroidPositionX = -5.0f;  
-    float asteroidPositionY = 5.0f;
-    
-    while (!glfwWindowShouldClose(window))
-    {
-        double currentTime = glfwGetTime();
-        frameCounter++;
-        if ( currentTime - lastTime >= 1.0 ){
-            char buffer[512];
-            snprintf(buffer, sizeof(buffer), "%f ms/frame %dfps\n", 1000.0/double(frameCounter), frameCounter);
-            OutputDebugString(buffer);
-            frameCounter = 0;
-            lastTime += 1.0;
-        }
+        GLfloat currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
         
         glfwPollEvents();
 
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        gameProcessInput(deltaTime);
+
+        gameUpdate(deltaTime);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        shaders.Use();
+        gameRender(&gameState, &spriteRenderData);
 
-        glm::mat4 transform;
-        
-
-
-        if (rotateRigth)
-        {
-            rotate -= 1.0f;
-        }
-        else if (rotateLeft)
-        {
-            rotate += 1.0f;
-        }
-
-        // mat4x4 trans = {};
-        // makeIdentityMatrix(trans);
-        // vector3 scaleVec = {0.2f, 0.2f, 0.2f};
-        // scaleMatrix4x4(trans, scaleVec);
-        // rotateMatrix4x4(trans, 90.0f);
-        
-        transform = glm::scale(transform, glm::vec3(0.15, 0.15, 0.15));
-        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
-
-        // Get matrix's uniform location and set matrix
-        GLint transformLoc = glGetUniformLocation(shaders.Program, "transform");
-        float *glmValue = glm::value_ptr(transform);
-        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glmValue);
-        
-        glBindVertexArray(VAO[0]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-
-#if 1
-        
-        if (frameCounter == 0)
-        {
-            asteroidPositionX = glm::linearRand(-5.0f, 5.0f);
-            asteroidPositionY = glm::linearRand(-5.0f, 5.0f);
-        }
-#endif
-            
-        glm::vec3 asteroidPosition(asteroidPositionX, asteroidPositionY, 0.0f);
-        
-        transform = glm::translate(transform, asteroidPosition);
-        transform = glm::scale(transform, glm::vec3(0.3, 0.3, 0.3));
-        transform = glm::rotate(transform, glm::radians(rotate), glm::vec3(0.0f, 0.0f, 1.0f));
-
-        transformLoc = glGetUniformLocation(shaders.Program, "transform");
-        glmValue = glm::value_ptr(transform);
-        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glmValue);
-        
-        glBindVertexArray(VAO[1]);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glBindVertexArray(0);
-        
         glfwSwapBuffers(window);
     }
+
+    ResourceManager::Clear();
     
+    glfwTerminate();
     return 0;
 }
