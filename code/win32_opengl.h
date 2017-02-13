@@ -376,7 +376,6 @@ struct gameLevel
     struct gameObject bricks[3*6]; 
 };
 
-
 struct game
 {
     gameState state;
@@ -384,6 +383,7 @@ struct game
     GLuint width, height;
 
     struct gameLevel level;
+    struct gameObject player;
 };
 
 #endif

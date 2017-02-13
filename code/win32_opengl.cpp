@@ -24,6 +24,9 @@ static GLuint windowHeight = 600;
 static struct game gameState;
 static struct sprite spriteRenderData;
 
+static glm::vec2 playerSize(100, 20);
+static GLfloat playerVelocity(500.0f);
+
 static void initSprite(struct sprite *sprite)
 {
     GLuint VBO;
@@ -101,6 +104,11 @@ static void drawLevel(struct gameLevel *level, struct sprite *spriteRenderData)
     }
 }
 
+static void drawPlayer(struct gameObject *player, struct sprite *spriteRenderData)
+{
+    drawGameObject(player, spriteRenderData);
+}
+
 static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint levelHeight)
 {
     
@@ -123,6 +131,9 @@ static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint lev
     {
         for (int x = 0; x < width; x++)
         {
+            // NOTE init object before use.
+            gameInitObject(&level->bricks[gameObjectPos]);
+            
             if (tileData[y][x] == 1)
             {
                 glm::vec2 pos(unitWidth * x, unitHeight * y);
@@ -182,6 +193,16 @@ static void gameLoadLevel(struct gameLevel *level, GLchar *file, GLuint width, G
     gameInitLevel(level, width, height);
 }
 
+static void initPLayer(struct game *gameState)
+{
+    gameInitObject(&gameState->player);
+    glm::vec2 playerPos = glm::vec2(gameState->width / 2 - playerSize.x / 2, gameState->height - playerSize.y);
+    gameState->player.position = playerPos;
+    gameState->player.size = playerSize;
+//    gameState->player.velocity = playerVelocity;
+    gameState->player.sprite = ResourceManager::GetTexture("paddle");
+}
+
 static void gameInit(struct game *gameState, struct sprite *sprite)
 {
     gameState->width = windowWidth;
@@ -200,7 +221,7 @@ static void gameInit(struct game *gameState, struct sprite *sprite)
     ResourceManager::LoadTexture("awesomeface.png", GL_TRUE, "face");
     ResourceManager::LoadTexture("block.png", GL_FALSE, "block");
     ResourceManager::LoadTexture("block_solid.png", GL_FALSE, "block_solid");
-//    ResourceManager::LoadTexture("paddle.png", true, "paddle");
+    ResourceManager::LoadTexture("paddle.png", true, "paddle");
     
     // Set render-specific controls
     initSprite(sprite);
@@ -208,7 +229,7 @@ static void gameInit(struct game *gameState, struct sprite *sprite)
 
     
     gameLoadLevel(&gameState->level, NULL, gameState->width, gameState->height * 0.5f);
-    
+    initPLayer(gameState);
     
 }
 
@@ -235,6 +256,7 @@ static void gameRender(struct game *gameState, struct sprite *spriteRenderData)
 
         // // Draw player
         // Player->Draw(*Renderer);
+        drawPlayer(&gameState->player, spriteRenderData);
     }
 }
 
