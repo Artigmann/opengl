@@ -18,8 +18,14 @@
 
 #include "win32_opengl.h"
 
-static GLuint windowWidth = 1280;
-static GLuint windowHeight = 720;
+/*
+  1280×720 (HD, 720p)
+  1920×1080 (FHD, Full HD, 2K 1080p)
+  2560×1440 (QHD, WQHD, Quad HD, 1440p)
+*/
+
+static GLuint windowWidth = 2560;
+static GLuint windowHeight = 1440;
 
 static struct game gameState;
 static struct sprite spriteRenderData;
@@ -28,7 +34,7 @@ static glm::vec2 playerSize(100, 20);
 static GLfloat playerVelocity(500.0f);
 
 static glm::vec2 initialBallVelocity(100.0f, -350.0f);
-static GLfloat ballRadius = 12.5f;
+static GLfloat ballRadius = 350.0f;
 
 static void initSprite(struct sprite *sprite)
 {
@@ -307,7 +313,7 @@ static void gameProcessInput(struct game *gameState, GLfloat dt)
         {
             if (gameState->player.position.x >= 0)
             {
-                gameState->player.position.x -= velocity;
+                gameState->player.position.x -= velocity; 
                 if (gameState->ball.stuck)
                 {
                     gameState->ball.position.x -= velocity;
@@ -515,8 +521,11 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-    glfwWindowHint(GLFW_SAMPLES, 32);
-    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout", NULL, NULL);
+    glfwWindowHint(GLFW_SAMPLES, 4);
+
+    // glfwGetPrimaryMonitor()
+    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout",
+                                          glfwGetPrimaryMonitor(), NULL);
     glfwMakeContextCurrent(window);
 
     glewExperimental = GL_TRUE;
@@ -540,6 +549,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
 
     gameState.state = GAME_ACTIVE;
 
+
     GLuint VAO, shaderProgram;
     shaderProgram = 0;
     
@@ -548,6 +558,12 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     hotLoadShaderFromFile(&vertexShader, &fragmentShader, &shaderProgram);
     renderTriangle(&VAO);
 
+
+    GLint nbFrames = 0;
+    GLfloat lastTime = glfwGetTime();
+
+    glfwSwapInterval(0);
+
     while(!glfwWindowShouldClose(window))
     {
         hotLoadShaderFromFile(&vertexShader, &fragmentShader, &shaderProgram);
@@ -555,6 +571,18 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        GLfloat currentTime = glfwGetTime();
+        nbFrames++;
+        if (currentTime - lastTime >= 1.0f)
+        {
+            char string[512];
+            snprintf(string, sizeof(string), "ms/frame: %f fps: %d\n", (1000.0f/(GLfloat)nbFrames),
+                     nbFrames);
+            OutputDebugString(string);
+            nbFrames = 0;
+            lastTime += 1.0f;
+
+        }
         glfwPollEvents();
 #if 0
         gameProcessInput(&gameState, deltaTime);
