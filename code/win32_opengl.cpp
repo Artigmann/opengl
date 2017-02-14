@@ -374,6 +374,140 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mode
     }
 }
 
+static void readEntireShaderFromFile(struct shaderData *shader, GLenum shaderType)
+{
+    DWORD bytesRead = 0;
+    char *fileData;
+    shader->fileHandle = CreateFile(shader->filePath, GENERIC_READ,
+                                          FILE_SHARE_READ|FILE_SHARE_WRITE,
+                                          NULL, OPEN_EXISTING,
+                                          FILE_ATTRIBUTE_NORMAL, NULL);
+    GetFileTime(shader->fileHandle, NULL, NULL, &shader->lastWriteTime);
+    GetFileSizeEx(shader->fileHandle, &shader->fileSize);
+
+    fileData = (char*)malloc((size_t)shader->fileSize.QuadPart);
+    
+    ReadFile(shader->fileHandle, fileData, shader->fileSize.QuadPart, &bytesRead, NULL);
+
+    shader->fileLoaded = true;
+
+        
+    shader->shader = glCreateShader(shaderType);
+
+    GLchar *shaderCode = (GLchar*)malloc(shader->fileSize.QuadPart);
+    CopyMemory(shaderCode, fileData, shader->fileSize.QuadPart);
+    glShaderSource(shader->shader, 1, &shaderCode, NULL);
+    glCompileShader(shader->shader);
+
+    GLint success;
+    GLchar infoLog[1024];
+    glGetShaderiv(shader->shader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(shader->shader, 1024, NULL, infoLog);
+        OutputDebugString("Shader Compilation ERROR: \n");
+        OutputDebugString(infoLog);
+        OutputDebugString("\n");
+    }
+    else
+    {
+        //NOTE don't load new shader if it didn't compile!!
+        // ONLY SUPPORTS MAX_SHADER_CODE_SIZE bytes large shaders
+        CopyMemory(shader->code, fileData, MAX_SHADER_CODE_SIZE);
+        shader->isModified = true;
+    }
+
+    free(fileData);
+    free((void*)shaderCode);
+}
+
+//TODO make code size dynamic, not static
+static void hotLoadShaderFromFile(struct shaderData *vertexShader, struct shaderData *fragmentShader, GLuint *shaderProgram)
+{
+    DWORD bytesRead = 0;
+    
+    if (!vertexShader->fileLoaded)
+    {
+        readEntireShaderFromFile(vertexShader, GL_VERTEX_SHADER);
+    }
+    else
+    {        
+        FILETIME lastWriteTime = vertexShader->lastWriteTime;
+        GetFileTime(vertexShader->fileHandle, NULL, NULL, &vertexShader->lastWriteTime);
+        if (CompareFileTime(&lastWriteTime, &vertexShader->lastWriteTime) != 0)
+        {
+            readEntireShaderFromFile(vertexShader, GL_VERTEX_SHADER);
+        }
+    }
+
+    if (!fragmentShader->fileLoaded)
+    {
+        readEntireShaderFromFile(fragmentShader, GL_FRAGMENT_SHADER);
+    }
+    else
+    {
+        FILETIME lastWriteTime = fragmentShader->lastWriteTime;
+        GetFileTime(fragmentShader->fileHandle, NULL, NULL, &fragmentShader->lastWriteTime);
+        if (CompareFileTime(&lastWriteTime, &fragmentShader->lastWriteTime) != 0)
+        {
+            readEntireShaderFromFile(fragmentShader, GL_FRAGMENT_SHADER);
+        }
+    }
+
+    if (vertexShader->isModified || fragmentShader->isModified)
+    {
+        glDeleteProgram(*shaderProgram);
+
+        *shaderProgram = glCreateProgram();
+        glAttachShader(*shaderProgram, vertexShader->shader);
+        glAttachShader(*shaderProgram, fragmentShader->shader);
+        glLinkProgram(*shaderProgram);
+
+        
+        GLint success;
+        GLchar infoLog[1024];
+        glGetShaderiv(*shaderProgram, GL_LINK_STATUS, &success);
+        if (!success)
+        {
+            glGetShaderInfoLog(*shaderProgram, 1024, NULL, infoLog);
+            OutputDebugString("Shader Link ERROR: \n");
+            OutputDebugString(infoLog);
+            OutputDebugString("\n");
+        }
+        
+        glDeleteShader(vertexShader->shader);
+        glDeleteShader(fragmentShader->shader);
+
+        vertexShader->isModified = false;
+        fragmentShader->isModified = false;
+    }
+} 
+
+static struct shaderData vertexShader;
+static struct shaderData fragmentShader;
+
+static void renderTriangle(GLuint *VAO)
+{
+    GLfloat vertices[] = {
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        0.0f,  0.5f, 0.0f
+    };  
+    
+    GLuint VBO;
+    glGenVertexArrays(1, VAO);
+    glGenBuffers(1, &VBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindVertexArray(*VAO);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(GLfloat), (GLvoid*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+}
+
 int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, int showCode)
 {
     glfwInit();
@@ -406,24 +540,47 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
 
     gameState.state = GAME_ACTIVE;
 
+    GLuint VAO, shaderProgram;
+    shaderProgram = 0;
+    
+    strcpy_s(vertexShader.filePath, 512, "vertex_test.gl");
+    strcpy_s(fragmentShader.filePath, 512, "fragment_test.gl");
+    hotLoadShaderFromFile(&vertexShader, &fragmentShader, &shaderProgram);
+    renderTriangle(&VAO);
+
     while(!glfwWindowShouldClose(window))
     {
+        hotLoadShaderFromFile(&vertexShader, &fragmentShader, &shaderProgram);
         GLfloat currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
-        
-        glfwPollEvents();
 
+        glfwPollEvents();
+#if 0
         gameProcessInput(&gameState, deltaTime);
 
         gameUpdate(&gameState, deltaTime);
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
+                
 
         gameRender(&gameState, &spriteRenderData);
 
         glfwSwapBuffers(window);
+#else
+        
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindVertexArray(0);
+        glfwSwapBuffers(window);
+#endif
+
     }
 
     ResourceManager::Clear();

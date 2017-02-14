@@ -406,4 +406,25 @@ struct game
     struct ball ball;
 };
 
+#define MAX_SHADER_CODE_SIZE 1024
+//NOTE make one struct for all shaders??
+struct shaderData
+{
+    GLuint shader;
+    BOOL fileLoaded;
+    GLboolean isModified;
+    char filePath[512];
+    HANDLE fileHandle = INVALID_HANDLE_VALUE;
+    LARGE_INTEGER fileSize;
+    FILETIME lastWriteTime;
+    char code[MAX_SHADER_CODE_SIZE];    
+};
+//NOTE like this??
+struct shaders
+{
+    GLuint shaderProgram;
+    struct shaderData vertex;
+    struct shaderData fragmentShader;
+};
+
 #endif
