@@ -18,6 +18,12 @@
 
 #include "win32_opengl.h"
 
+/*
+  1280×720 (HD, 720p)
+  1920×1080 (FHD, Full HD, 2K 1080p)
+  2560×1440 (QHD, WQHD, Quad HD, 1440p)
+*/
+
 static GLuint windowWidth = 1280;
 static GLuint windowHeight = 720;
 
@@ -307,7 +313,7 @@ static void gameProcessInput(struct game *gameState, GLfloat dt)
         {
             if (gameState->player.position.x >= 0)
             {
-                gameState->player.position.x -= velocity;
+                gameState->player.position.x -= velocity; 
                 if (gameState->ball.stuck)
                 {
                     gameState->ball.position.x -= velocity;
@@ -381,8 +387,11 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-    glfwWindowHint(GLFW_SAMPLES, 32);
-    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout", NULL, NULL);
+//    glfwWindowHint(GLFW_SAMPLES, 4);
+
+    // glfwGetPrimaryMonitor()
+    GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout",
+                                          NULL, NULL);
     glfwMakeContextCurrent(window);
 
     glewExperimental = GL_TRUE;
@@ -397,7 +406,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_MULTISAMPLE);
+//    glEnable(GL_MULTISAMPLE);
 
     gameInit(&gameState, &spriteRenderData);
 
@@ -406,11 +415,28 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
 
     gameState.state = GAME_ACTIVE;
 
+    GLint nbFrames = 0;
+    GLfloat lastTime = glfwGetTime();
+
+    glfwSwapInterval(0);
     while(!glfwWindowShouldClose(window))
     {
         GLfloat currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
+
+        GLfloat currentTime = glfwGetTime();
+        nbFrames++;
+        if (currentTime - lastTime >= 1.0f)
+        {
+            char string[512];
+            snprintf(string, sizeof(string), "ms/frame: %f fps: %d\n", (1000.0f/(GLfloat)nbFrames),
+                     nbFrames);
+            OutputDebugString(string);
+            nbFrames = 0;
+            lastTime += 1.0f;
+
+        }
         
         glfwPollEvents();
 
