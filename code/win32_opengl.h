@@ -376,6 +376,20 @@ struct gameLevel
     struct gameObject bricks[3*6]; 
 };
 
+struct ball
+{
+    glm::vec2 position, size, velocity;
+    glm::vec3 color;
+    GLfloat rotation;
+    GLboolean isSolid;
+    GLboolean destroyed;
+
+    Texture2D sprite;
+
+    GLfloat radius;
+    GLboolean stuck;
+};
+
 struct game
 {
     gameState state;
@@ -384,6 +398,7 @@ struct game
 
     struct gameLevel level;
     struct gameObject player;
+    struct ball ball;
 };
 
 #endif

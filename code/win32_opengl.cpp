@@ -27,6 +27,9 @@ static struct sprite spriteRenderData;
 static glm::vec2 playerSize(100, 20);
 static GLfloat playerVelocity(500.0f);
 
+static glm::vec2 initialBallVelocity(100.0f, -350.0f);
+static GLfloat ballRadius = 12.5f;
+
 static void initSprite(struct sprite *sprite)
 {
     GLuint VBO;
@@ -104,9 +107,14 @@ static void drawLevel(struct gameLevel *level, struct sprite *spriteRenderData)
     }
 }
 
-static void drawPlayer(struct gameObject *player, struct sprite *spriteRenderData)
+static inline void drawPlayer(struct gameObject *player, struct sprite *spriteRenderData)
 {
     drawGameObject(player, spriteRenderData);
+}
+
+static inline void drawBall(struct ball *ball, struct sprite *spriteRenderData)
+{
+    drawGameObject((struct gameObject*)ball, spriteRenderData);
 }
 
 static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint levelHeight)
@@ -193,7 +201,7 @@ static void gameLoadLevel(struct gameLevel *level, GLchar *file, GLuint width, G
     gameInitLevel(level, width, height);
 }
 
-static void initPLayer(struct game *gameState)
+static inline void initPLayer(struct game *gameState)
 {
     gameInitObject(&gameState->player);
     glm::vec2 playerPos = glm::vec2(gameState->width / 2 - playerSize.x / 2, gameState->height - playerSize.y);
@@ -201,6 +209,18 @@ static void initPLayer(struct game *gameState)
     gameState->player.size = playerSize;
 //    gameState->player.velocity = playerVelocity;
     gameState->player.sprite = ResourceManager::GetTexture("paddle");
+}
+
+static inline void initBall(struct game *gameState)
+{
+    gameInitObject((struct gameObject*)&gameState->ball);
+    glm::vec2 ballPos = gameState->player.position + glm::vec2(playerSize.x / 2 - ballRadius, -ballRadius * 2);
+    gameState->ball.position = ballPos;
+    gameState->ball.radius = ballRadius;
+    gameState->ball.velocity = initialBallVelocity;
+    gameState->ball.sprite = ResourceManager::GetTexture("face");
+    gameState->ball.size = glm::vec2(ballRadius * 2, ballRadius * 2);
+    gameState->ball.stuck = true;
 }
 
 static void gameInit(struct game *gameState, struct sprite *sprite)
@@ -230,17 +250,81 @@ static void gameInit(struct game *gameState, struct sprite *sprite)
     
     gameLoadLevel(&gameState->level, NULL, gameState->width, gameState->height * 0.5f);
     initPLayer(gameState);
-    
+    initBall(gameState);
 }
 
-static void gameUpdate(GLfloat dt)
+static void moveBall(struct game *gameState, GLfloat dt)
 {
-    
+    if (!gameState->ball.stuck)
+    {
+        // Move the ball
+        gameState->ball.position += gameState->ball.velocity * dt;
+        // Then check if outside window bounds and if so, reverse velocity and restore at correct position
+        if (gameState->ball.position.x <= 0.0f)
+        {
+            gameState->ball.velocity.x = -gameState->ball.velocity.x;
+            gameState->ball.position.x = 0.0f;
+        }
+        else if (gameState->ball.position.x + gameState->ball.size.x >= windowWidth)
+        {
+            gameState->ball.velocity.x = -gameState->ball.velocity.x;
+            gameState->ball.position.x = windowWidth - gameState->ball.size.x;
+        }
+        if (gameState->ball.position.y <= 0.0f)
+        {
+            gameState->ball.velocity.y = -gameState->ball.velocity.y;
+            gameState->ball.position.y = 0.0f;
+        }
+    }
 }
 
-static void gameProcessInput(GLfloat dt)
+static void resetBall(struct game *gameState)
 {
-    
+    initBall(gameState);
+}
+
+static void gameUpdate(struct game *gameState, GLfloat dt)
+{
+    moveBall(gameState, dt);
+    if (gameState->ball.stuck)
+    {
+        resetBall(gameState);
+    }
+}
+
+static void gameProcessInput(struct game *gameState, GLfloat dt)
+{
+    if (gameState->state == GAME_ACTIVE)
+    {
+        GLfloat velocity = playerVelocity * dt;
+        // Move playerboard
+        if (gameState->keys[GLFW_KEY_A])
+        {
+            if (gameState->player.position.x >= 0)
+            {
+                gameState->player.position.x -= velocity;
+                if (gameState->ball.stuck)
+                    gameState->ball.position.x -= velocity;
+            }
+        }
+        if (gameState->keys[GLFW_KEY_D])
+        {
+            if (gameState->player.position.x <= gameState->width - gameState->player.size.x)
+            {
+                gameState->player.position.x += velocity;
+                if (gameState->ball.stuck)
+                    gameState->ball.position.x += velocity;
+            }
+        }
+        if (gameState->keys[GLFW_KEY_SPACE])
+        {
+            gameState->ball.stuck = false;
+        }
+        if (gameState->keys[GLFW_KEY_R])
+        {
+            gameState->ball.stuck = true;
+        }
+    }
 }
 
 static void gameRender(struct game *gameState, struct sprite *spriteRenderData)
@@ -256,7 +340,8 @@ static void gameRender(struct game *gameState, struct sprite *spriteRenderData)
 
         // // Draw player
         // Player->Draw(*Renderer);
-        drawPlayer(&gameState->player, spriteRenderData);
+	        drawPlayer(&gameState->player, spriteRenderData);
+        drawBall(&gameState->ball, spriteRenderData);
     }
 }
 
@@ -319,9 +404,9 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
         
         glfwPollEvents();
 
-        gameProcessInput(deltaTime);
+        gameProcessInput(&gameState, deltaTime);
 
-        gameUpdate(deltaTime);
+        gameUpdate(&gameState, deltaTime);
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
