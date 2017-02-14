@@ -18,8 +18,8 @@
 
 #include "win32_opengl.h"
 
-static GLuint windowWidth = 800;
-static GLuint windowHeight = 600;
+static GLuint windowWidth = 1280;
+static GLuint windowHeight = 720;
 
 static struct game gameState;
 static struct sprite spriteRenderData;
@@ -101,7 +101,7 @@ static void drawGameObject(struct gameObject *object, struct sprite *spriteRende
 static void drawLevel(struct gameLevel *level, struct sprite *spriteRenderData)
 {
     
-    for (int i = 0; i < 3*6; i++)
+    for (int i = 0; i < LEVEL_HEIGHT*LEVEL_WIDTH; i++)
     {
         drawGameObject(&level->bricks[i], spriteRenderData);
     }
@@ -120,16 +120,21 @@ static inline void drawBall(struct ball *ball, struct sprite *spriteRenderData)
 static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint levelHeight)
 {
     
-    int tileData[3][6] =
+    int tileData[LEVEL_HEIGHT][LEVEL_WIDTH] =
     {
-        {1, 1, 1, 1, 1, 1}, 
-        {2, 2, 0, 0, 2, 2},
-        {3, 3, 4, 4, 3, 3},
+        { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, },
+        { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, }, 	 
+        { 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 4, 4, 4, 4, 4, }, 	 
+        { 4, 1, 4, 1, 4, 0, 0, 1, 0, 0, 4, 1, 4, 1, 4, },	 
+        { 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 3, 3, 3, 3, 3, }, 	 
+        { 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3, 3, },	 
+        { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, },	 
+        { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, }, 
     };
 
     
-    GLuint height = 3;
-    GLuint width = 6;
+    GLuint height = LEVEL_HEIGHT;
+    GLuint width = LEVEL_WIDTH;
     GLfloat unitWidth = levelWidth / (GLfloat)width;
     GLfloat unitHeight = levelHeight / height;
     
@@ -180,7 +185,7 @@ static void gameInitLevel(struct gameLevel *level, GLuint levelWidth, GLuint lev
                 level->bricks[gameObjectPos].position = pos;
                 level->bricks[gameObjectPos].size = size;
                 level->bricks[gameObjectPos].color = color;
-                level->bricks[gameObjectPos].sprite = ResourceManager::GetTexture("block_solid");
+                level->bricks[gameObjectPos].sprite = ResourceManager::GetTexture("block");
 
                 gameObjectPos++;
             }
@@ -298,22 +303,26 @@ static void gameProcessInput(struct game *gameState, GLfloat dt)
     {
         GLfloat velocity = playerVelocity * dt;
         // Move playerboard
-        if (gameState->keys[GLFW_KEY_A])
+        if (gameState->keys[GLFW_KEY_A] || gameState->keys[GLFW_KEY_LEFT])
         {
             if (gameState->player.position.x >= 0)
             {
                 gameState->player.position.x -= velocity;
                 if (gameState->ball.stuck)
+                {
                     gameState->ball.position.x -= velocity;
+                }
             }
         }
-        if (gameState->keys[GLFW_KEY_D])
+        if (gameState->keys[GLFW_KEY_D] || gameState->keys[GLFW_KEY_RIGHT])
         {
             if (gameState->player.position.x <= gameState->width - gameState->player.size.x)
             {
                 gameState->player.position.x += velocity;
                 if (gameState->ball.stuck)
+                {
                     gameState->ball.position.x += velocity;
+                }
             }
         }
         if (gameState->keys[GLFW_KEY_SPACE])
@@ -372,7 +381,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-
+    glfwWindowHint(GLFW_SAMPLES, 32);
     GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout", NULL, NULL);
     glfwMakeContextCurrent(window);
 
@@ -388,6 +397,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_MULTISAMPLE);
 
     gameInit(&gameState, &spriteRenderData);
 

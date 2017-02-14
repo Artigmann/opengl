@@ -346,6 +346,11 @@ Texture2D ResourceManager::loadTextureFromFile(const GLchar *file, GLboolean alp
 
 /** NOTE MY C STUFF **/
 
+
+#define LEVEL_WIDTH 15
+#define LEVEL_HEIGHT 8
+
+
 enum gameState
 {
     GAME_ACTIVE,
@@ -373,7 +378,7 @@ struct gameObject
 
 struct gameLevel
 {
-    struct gameObject bricks[3*6]; 
+    struct gameObject bricks[LEVEL_HEIGHT*LEVEL_WIDTH]; 
 };
 
 struct ball
