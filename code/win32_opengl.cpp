@@ -24,8 +24,8 @@
   2560×1440 (QHD, WQHD, Quad HD, 1440p)
 */
 
-static GLuint windowWidth = 2560;
-static GLuint windowHeight = 1440;
+static GLuint windowWidth = 1280;
+static GLuint windowHeight = 720;
 
 static struct game gameState;
 static struct sprite spriteRenderData;
@@ -34,7 +34,7 @@ static glm::vec2 playerSize(100, 20);
 static GLfloat playerVelocity(500.0f);
 
 static glm::vec2 initialBallVelocity(100.0f, -350.0f);
-static GLfloat ballRadius = 350.0f;
+static GLfloat ballRadius = 25.0f;
 
 static void initSprite(struct sprite *sprite)
 {
@@ -525,7 +525,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
 
     // glfwGetPrimaryMonitor()
     GLFWwindow *window = glfwCreateWindow(windowWidth, windowHeight, "Breakout",
-                                          glfwGetPrimaryMonitor(), NULL);
+                                          NULL, NULL);
     glfwMakeContextCurrent(window);
 
     glewExperimental = GL_TRUE;
@@ -562,7 +562,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
     GLint nbFrames = 0;
     GLfloat lastTime = glfwGetTime();
 
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     while(!glfwWindowShouldClose(window))
     {
