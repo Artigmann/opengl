@@ -420,7 +420,6 @@ static void readEntireShaderFromFile(struct shaderData *shader, GLenum shaderTyp
         //NOTE don't load new shader if it didn't compile!!
         // ONLY SUPPORTS MAX_SHADER_CODE_SIZE bytes large shaders
         ZeroMemory(shader->code, MAX_SHADER_CODE_SIZE);
-
         CopyMemory(shader->code, fileData, MAX_SHADER_CODE_SIZE);
         shader->isModified = true;
     }
