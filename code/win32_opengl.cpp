@@ -391,17 +391,17 @@ static void readEntireShaderFromFile(struct shaderData *shader, GLenum shaderTyp
     GetFileTime(shader->fileHandle, NULL, NULL, &shader->lastWriteTime);
     GetFileSizeEx(shader->fileHandle, &shader->fileSize);
 
-    fileData = (char*)malloc((size_t)shader->fileSize.QuadPart);
-    
+    fileData = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, shader->fileSize.QuadPart);
+    assert(fileData);
     ReadFile(shader->fileHandle, fileData, shader->fileSize.QuadPart, &bytesRead, NULL);
-
     shader->fileLoaded = true;
-
         
     shader->shader = glCreateShader(shaderType);
 
-    GLchar *shaderCode = (GLchar*)malloc(shader->fileSize.QuadPart);
-    CopyMemory(shaderCode, fileData, shader->fileSize.QuadPart);
+    GLchar *shaderCode = (GLchar*)HeapAlloc(GetProcessHeap(),
+                                            HEAP_ZERO_MEMORY, shader->fileSize.QuadPart);
+    assert(shaderCode);
+    CopyMemory((void*)shaderCode, (void*)fileData, shader->fileSize.QuadPart);
     glShaderSource(shader->shader, 1, &shaderCode, NULL);
     glCompileShader(shader->shader);
 
@@ -419,12 +419,14 @@ static void readEntireShaderFromFile(struct shaderData *shader, GLenum shaderTyp
     {
         //NOTE don't load new shader if it didn't compile!!
         // ONLY SUPPORTS MAX_SHADER_CODE_SIZE bytes large shaders
+        ZeroMemory(shader->code, MAX_SHADER_CODE_SIZE);
+
         CopyMemory(shader->code, fileData, MAX_SHADER_CODE_SIZE);
         shader->isModified = true;
     }
 
-    free(fileData);
-    free((void*)shaderCode);
+    HeapFree(GetProcessHeap(), 0, fileData);
+    HeapFree(GetProcessHeap(), 0, shaderCode);
 }
 
 //TODO make code size dynamic, not static
