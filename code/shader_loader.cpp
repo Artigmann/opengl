@@ -44,6 +44,7 @@ static void readEntireShaderFromFile(struct shaderData *shader, GLenum shaderTyp
 
     GLchar *shaderCode = (GLchar*)malloc(shader->fileSize.QuadPart);
     CopyMemory(shaderCode, fileData, shader->fileSize.QuadPart);
+    //TODO use temporary shader and only use shader struct shader after sucessfull compile?
     glShaderSource(shader->shader, 1, &shaderCode, NULL);
     glCompileShader(shader->shader);
 
