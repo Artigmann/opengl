@@ -403,6 +403,7 @@ struct game
 
     struct gameLevel level;
     struct gameObject player;
+    struct gameObject player2;
     struct ball ball;
 };
 

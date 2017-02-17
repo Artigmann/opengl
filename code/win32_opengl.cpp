@@ -34,7 +34,7 @@ static glm::vec2 playerSize(100, 20);
 static GLfloat playerVelocity(500.0f);
 
 static glm::vec2 initialBallVelocity(100.0f, -350.0f);
-static GLfloat ballRadius = 25.0f;
+static GLfloat ballRadius = 12.5f;
 
 static void initSprite(struct sprite *sprite)
 {
@@ -109,7 +109,10 @@ static void drawLevel(struct gameLevel *level, struct sprite *spriteRenderData)
     
     for (int i = 0; i < LEVEL_HEIGHT*LEVEL_WIDTH; i++)
     {
-        drawGameObject(&level->bricks[i], spriteRenderData);
+        if (level->bricks[i].destroyed == false)
+        {
+            drawGameObject(&level->bricks[i], spriteRenderData);
+        }
     }
 }
 
@@ -220,6 +223,13 @@ static inline void initPLayer(struct game *gameState)
     gameState->player.size = playerSize;
 //    gameState->player.velocity = playerVelocity;
     gameState->player.sprite = ResourceManager::GetTexture("paddle");
+
+    gameInitObject(&gameState->player2);
+    playerPos = glm::vec2(100,0);//glm::vec2(gameState->width / 2 - playerSize.x / 2, gameState->height - playerSize.y);
+    gameState->player2.position = playerPos;
+    gameState->player2.size = playerSize;
+//    gameState->player.velocity = playerVelocity;
+    gameState->player2.sprite = ResourceManager::GetTexture("paddle");
 }
 
 static inline void initBall(struct game *gameState)
@@ -261,6 +271,7 @@ static void gameInit(struct game *gameState, struct sprite *sprite)
     
     gameLoadLevel(&gameState->level, NULL, gameState->width, gameState->height * 0.5f);
     initPLayer(gameState);
+    initPLayer(gameState);
     initBall(gameState);
 }
 
@@ -289,6 +300,34 @@ static void moveBall(struct game *gameState, GLfloat dt)
     }
 }
 
+static GLboolean checkCollision(struct gameObject *object1, struct gameObject *object2)
+{
+    GLboolean collisionX = object1->position.x + object1->size.x >= object2->position.x
+        && object2->position.x + object2->size.x >= object1->position.x;
+    GLboolean collisionY = object1->position.y + + object1->size.y >= object2->position.y
+        && object2->position.y + object2->size.y >= object1->position.y;
+
+    GLboolean collided = collisionX && collisionY;
+    return collided;
+}
+
+static void doCollision(struct game *gameState)
+{
+    for (int i = 0; i < LEVEL_HEIGHT*LEVEL_WIDTH; i++)
+    {
+        if (gameState->level.bricks[i].destroyed == false)
+        {
+            if (checkCollision((struct gameObject*)&gameState->ball, &gameState->level.bricks[i]))
+            {
+                if (gameState->level.bricks[i].isSolid == false)
+                {
+                    gameState->level.bricks[i].destroyed = true;
+                }
+            }
+        }
+    }
+}
+
 static void resetBall(struct game *gameState)
 {
     initBall(gameState);
@@ -301,6 +340,7 @@ static void gameUpdate(struct game *gameState, GLfloat dt)
     {
         resetBall(gameState);
     }
+    doCollision(gameState);
 }
 
 static void gameProcessInput(struct game *gameState, GLfloat dt)
@@ -356,6 +396,7 @@ static void gameRender(struct game *gameState, struct sprite *spriteRenderData)
         // // Draw player
         // Player->Draw(*Renderer);
 	        drawPlayer(&gameState->player, spriteRenderData);
+//            drawPlayer(&gameState->player2, spriteRenderData);
         drawBall(&gameState->ball, spriteRenderData);
     }
 }
@@ -585,7 +626,7 @@ int CALLBACK WinMain(HINSTANCE intance, HINSTANCE prevInstance, LPSTR cmdLine, i
 
         }
         glfwPollEvents();
-#if 0
+#if 1
         gameProcessInput(&gameState, deltaTime);
 
         gameUpdate(&gameState, deltaTime);
