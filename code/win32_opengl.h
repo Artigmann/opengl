@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iostream>
 /**********   NOTE TEXTURE CODE FROM GUY TODO IMPLEMENT MYSELF ***************/
+// code is based on the breakout tutorial from learnopengl.com
 class Texture2D
 {
 public:
